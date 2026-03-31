@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>StockBridge Admin Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0a0d0f; --card: #12171a; --border: rgba(255,255,255,0.07);
+      --accent: #00e5a0; --text: #e8ecea; --muted: #7a8b85;
+      --font-head: 'Syne', sans-serif; --font-body: 'DM Sans', sans-serif;
+    }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-body); padding: 40px 5vw; }
+    h1 { font-family: var(--font-head); font-size: 2rem; margin-bottom: 2rem; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    th { text-align: left; background: rgba(255,255,255,0.03); color: var(--muted); padding: 14px 20px; font-weight: 500; border-bottom: 1px solid var(--border); }
+    td { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .tag { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    .tag-pending { background: rgba(255,181,71,0.12); color: #ffb547; }
+    .tag-approved { background: rgba(0,229,160,0.12); color: var(--accent); }
+    .btn-approve { background: var(--accent); color: #000; border: none; padding: 6px 14px; border-radius: 6px; font-family: var(--font-head); font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: opacity .2s; }
+    .btn-approve:hover { opacity: 0.85; }
+    .btn-approve:disabled { opacity: 0.3; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <h1>Admin Dashboard: Waitlist Approvals</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Store Type</th>
+        <th>Date Joined</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="admin-table-body">
+      <tr><td colspan="8" style="text-align:center;">Loading...</td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    async function fetchWaitlist() {
+      try {
+        const res = await fetch('/api/admin/waitlist');
+        const data = await res.json();
+        renderTable(data);
+      } catch (err) {
+        console.error('Failed to load data', err);
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('admin-table-body');
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No waitlist signups yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(user => {
+        const isApproved = user.status === 'approved';
+        return `
+          <tr>
+            <td>#${user.id}</td>
+            <td style="font-weight:600">${user.name}</td>
+            <td>${user.email}</td>
+            <td>${user.phone || '-'}</td>
+            <td>${user.shop_type}</td>
+            <td>${new Date(user.created_at).toLocaleDateString()}</td>
+            <td><span class="tag ${isApproved ? 'tag-approved' : 'tag-pending'}">${isApproved ? 'Approved' : 'Pending'}</span></td>
+            <td>
+              <button class="btn-approve" 
+                      onclick="approveUser(${user.id})" 
+                      ${isApproved ? 'disabled' : ''}>
+                ${isApproved ? 'Approved' : 'Approve for Free'}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function approveUser(id) {
+      if (!confirm('Approve this user for free access?')) return;
+      try {
+        const res = await fetch('/api/admin/approve/' + id, { method: 'POST' });
+        if (res.ok) {
+          fetchWaitlist(); 
+        } else {
+          alert('Failed to approve user.');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    fetchWaitlist();
+  </script>
+</body>
+</html>
