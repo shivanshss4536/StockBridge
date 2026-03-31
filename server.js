@@ -28,12 +28,21 @@ if (process.env.DATABASE_URL) {
     db = {
         run: (sql, params, callback) => {
             let count = 0;
-            let postgresSql = sql.replace(/\?/g, () => `$${++count}`).replace(/AUTOINCREMENT/g, 'SERIAL');
-            if (postgresSql.toLowerCase().includes('insert into')) {
+            let postgresSql = sql.replace(/\?/g, () => `$${++count}`)
+                                .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY')
+                                .replace(/AUTOINCREMENT/g, 'SERIAL');
+            
+            if (postgresSql.toLowerCase().includes('insert into') && !postgresSql.toLowerCase().includes('returning')) {
                 postgresSql += ' RETURNING id';
             }
+            
             pool.query(postgresSql, params)
-                .then(res => { if (callback) callback.call({ lastID: res.rows[0]?.id, changes: res.rowCount }, null); })
+                .then(res => { 
+                    if (callback) {
+                        const row = res.rows ? res.rows[0] : null;
+                        callback.call({ lastID: row ? (row.id || Object.values(row)[0]) : null, changes: res.rowCount }, null); 
+                    }
+                })
                 .catch(err => { if (callback) callback(err); });
         },
         get: (sql, params, callback) => {
@@ -86,7 +95,7 @@ if (process.env.DATABASE_URL) {
 function initTables() {
     db.run(`
         CREATE TABLE IF NOT EXISTS waitlist (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE,
             phone TEXT,
@@ -100,7 +109,6 @@ function initTables() {
         )
     `, [], (err) => {
         if (!err) {
-            
             db.run('ALTER TABLE waitlist ADD COLUMN status TEXT DEFAULT "pending"', [], () => {});
             db.run('ALTER TABLE waitlist ADD COLUMN password_hash TEXT', [], () => {});
             db.run('ALTER TABLE waitlist ADD COLUMN google_id TEXT', [], () => {});
@@ -111,7 +119,7 @@ function initTables() {
 
     db.run(`
         CREATE TABLE IF NOT EXISTS suppliers (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             contact_name TEXT,
@@ -123,7 +131,7 @@ function initTables() {
 
     db.run(`
         CREATE TABLE IF NOT EXISTS products (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             supplier_id INTEGER NOT NULL,
             name TEXT NOT NULL,
