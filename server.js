@@ -153,33 +153,44 @@ function initTables() {
     });
 }
 
-app.post('/api/waitlist', (req, res) => {
-    const { name, email, phone, shop_type } = req.body;
+app.post('/api/waitlist', async (req, res) => {
+    const { name, email, phone, shop_type, password } = req.body;
 
-    if (!name || !email || !shop_type) {
-        return res.status(400).json({ error: 'Name, email, and shop type are required fields.' });
+    if (!name || !email || !shop_type || !password) {
+        return res.status(400).json({ error: 'Name, email, shop type, and password are required fields.' });
     }
 
-    const sql = `INSERT INTO waitlist (name, email, phone, shop_type, status) VALUES (?, ?, ?, ?, 'approved')`;
-    const params = [name, email, phone, shop_type];
+    try {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-    db.run(sql, params, function(err) {
-        if (err) {
-            const isUniqueError = err.code === '23505' || 
-                                (err.message && (err.message.includes('UNIQUE constraint failed') || err.message.toLowerCase().includes('unique')));
-            
-            if (isUniqueError) {
-                return res.status(409).json({ error: 'This email is already on our platform.' });
+        const sql = `INSERT INTO waitlist (name, email, phone, shop_type, status, password_hash) VALUES (?, ?, ?, ?, 'approved', ?)`;
+        const params = [name, email, phone, shop_type, hashedPassword];
+
+        db.run(sql, params, function(err) {
+            if (err) {
+                const isUniqueError = err.code === '23505' || 
+                                    (err.message && (err.message.includes('UNIQUE constraint failed') || err.message.toLowerCase().includes('unique')));
+                
+                if (isUniqueError) {
+                    return res.status(409).json({ error: 'This email is already registered. Please login instead.' });
+                }
+                console.error('Registration Error:', err);
+                return res.status(500).json({ error: `Registration failed: ${err.message || 'Database error'}` });
             }
-            console.error('Database Registration Error:', err);
-            // Include message for deep debugging during deployment
-            return res.status(500).json({ error: `Internal server error: ${err.message || 'Database Fault'}` });
-        }
-        res.status(201).json({ 
-            message: 'Welcome to StockBridge! Your 14-day free access is now active.',
-            id: this.lastID 
+
+            const userId = this.lastID;
+            const token = jwt.sign({ id: userId, email }, mySecretKey, { expiresIn: '7d' });
+            res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7*24*60*60*1000 });
+
+            res.status(201).json({ 
+                message: 'Welcome to StockBridge! Your account is ready.',
+                id: userId
+            });
         });
-    });
+    } catch (e) {
+        res.status(500).json({ error: 'Hashing failed during registration.' });
+    }
 });
 
 app.get('/api/admin/waitlist', (req, res) => {
