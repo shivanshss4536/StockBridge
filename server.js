@@ -149,20 +149,19 @@ app.post('/api/waitlist', (req, res) => {
         return res.status(400).json({ error: 'Name, email, and shop type are required fields.' });
     }
 
-    const sql = `INSERT INTO waitlist (name, email, phone, shop_type) VALUES (?, ?, ?, ?)`;
+    const sql = `INSERT INTO waitlist (name, email, phone, shop_type, status) VALUES (?, ?, ?, ?, 'approved')`;
     const params = [name, email, phone, shop_type];
 
     db.run(sql, params, function(err) {
         if (err) {
-            
-            if (err.message.includes('UNIQUE constraint failed')) {
-                return res.status(409).json({ error: 'This email is already on the waitlist.' });
+            if (err.message.includes('UNIQUE constraint failed') || (err.message && err.message.toLowerCase().includes('unique'))) {
+                return res.status(409).json({ error: 'This email is already on our platform.' });
             }
             console.error('Database error:', err.message);
             return res.status(500).json({ error: 'Internal server error. Please try again later.' });
         }
         res.status(201).json({ 
-            message: 'Successfully joined the waitlist.',
+            message: 'Your 15-day free early access has been granted!',
             id: this.lastID 
         });
     });
@@ -198,10 +197,22 @@ function checkUser(req, res, next) {
     const token = req.cookies.token;
     if (!token) return res.status(401).json({ error: 'Access denied. You must be logged in.' });
     
-    jwt.verify(token, mySecretKey, (err, user) => {
+    jwt.verify(token, mySecretKey, (err, decodedUser) => {
         if (err) return res.status(403).json({ error: 'Invalid or expired session.' });
-        req.user = user;
-        next();
+        
+        // Trial check on every protected request
+        db.get(`SELECT created_at FROM waitlist WHERE id = ?`, [decodedUser.id], (err, user) => {
+            if (err || !user) return res.status(401).json({ error: 'User not found.' });
+
+            const registrationDate = new Date(user.created_at);
+            const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
+            if (Date.now() - registrationDate.getTime() > fifteenDaysInMs) {
+                return res.status(403).json({ error: 'Your 15-day free access session has expired. Access denied.' });
+            }
+
+            req.user = decodedUser;
+            next();
+        });
     });
 }
 
@@ -243,8 +254,18 @@ app.post('/api/auth/login', (req, res) => {
     
     db.get(`SELECT * FROM waitlist WHERE email = ?`, [email], async (err, user) => {
         if (err || !user) return res.status(401).json({ error: 'Invalid email or password.' });
-        if (user.status !== 'approved') return res.status(403).json({ error: 'Your account has not been approved yet. Please wait for an admin to grant access.' });
-        if (!user.password_hash) return res.status(400).json({ error: 'Password not set. Please setup your password first.' });
+        
+        // First check for manually approved status (admin can override)
+        if (user.status !== 'approved') {
+             return res.status(403).json({ error: 'Your account is currently inactive. Please contact support.' });
+        }
+
+        // Second check for 15-day trial period
+        const registrationDate = new Date(user.created_at);
+        const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
+        if (Date.now() - registrationDate.getTime() > fifteenDaysInMs) {
+             return res.status(403).json({ error: 'Your 15-day free access has expired. Please subscribe to continue.' });
+        }
         
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) return res.status(401).json({ error: 'Invalid email or password.' });
