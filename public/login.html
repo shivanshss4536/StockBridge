@@ -107,7 +107,7 @@
         
         if (!res.ok) throw new Error(data.error || 'Server error');
         
-        if (!data.approved) throw new Error('Your account is on the waitlist but not yet approved.');
+        // No longer checking for data.approved - everyone is approved
         
         currentEmail = email;
         document.getElementById('step-email').classList.remove('active');

@@ -112,6 +112,9 @@ function initTables() {
         )
     `, [], (err) => {
         if (!err) {
+            // Auto-approve every existing user who was previously on the waitlist
+            db.run("UPDATE waitlist SET status = 'approved' WHERE status != 'approved'", [], () => {});
+            
             db.run("ALTER TABLE waitlist ADD COLUMN status TEXT DEFAULT 'pending'", [], () => {});
             db.run('ALTER TABLE waitlist ADD COLUMN password_hash TEXT', [], () => {});
             db.run('ALTER TABLE waitlist ADD COLUMN google_id TEXT', [], () => {});
@@ -248,7 +251,7 @@ app.post('/api/auth/check-email', (req, res) => {
         if (err || !row) return res.status(404).json({ error: 'Account not found.' });
         
         res.json({
-            approved: row.status === 'approved',
+            approved: true, // Everyone is approved by default now
             hasPassword: !!row.password_hash
         });
     });
@@ -259,7 +262,7 @@ app.post('/api/auth/setup-password', async (req, res) => {
     
     db.get(`SELECT id, status, password_hash FROM waitlist WHERE email = ?`, [email], async (err, user) => {
         if (err || !user) return res.status(404).json({ error: 'Account not found.' });
-        if (user.status !== 'approved') return res.status(403).json({ error: 'Your account has not been approved yet.' });
+        // No longer checking user.status !== 'approved'
         if (user.password_hash) return res.status(400).json({ error: 'Password already set. Please login.' });
         
         const salt = await bcrypt.genSalt(10);
@@ -281,20 +284,13 @@ app.post('/api/auth/login', (req, res) => {
     db.get(`SELECT * FROM waitlist WHERE email = ?`, [email], async (err, user) => {
         if (err || !user) return res.status(401).json({ error: 'Invalid email or password.' });
         
-        // First check for manually approved status (admin can override)
-        if (user.status !== 'approved') {
-             return res.status(403).json({ error: 'Your account is currently inactive. Please contact support.' });
-        }
-
-        // Second check for 14-day trial period
-        const registrationDate = new Date(user.created_at);
-        const fourteenDaysInMs = 14 * 24 * 60 * 60 * 1000;
-        if (Date.now() - registrationDate.getTime() > fourteenDaysInMs) {
-             return res.status(403).json({ error: 'Your 14-day free access has expired. Please subscribe to continue.' });
+        // No more status checks - everyone is allowed
+        if (!user.password_hash) {
+            return res.status(401).json({ error: 'Password not set. Please choose "New Account" flow.' });
         }
         
-        const validPassword = await bcrypt.compare(password, user.password_hash);
-        if (!validPassword) return res.status(401).json({ error: 'Invalid email or password.' });
+        const match = await bcrypt.compare(password, user.password_hash);
+        if (!match) return res.status(401).json({ error: 'Invalid email or password.' });
         
         const token = jwt.sign({ id: user.id, email: user.email }, mySecretKey, { expiresIn: '7d' });
         res.cookie('token', token, { httpOnly: true, secure: false, maxAge: 7*24*60*60*1000 });
