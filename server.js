@@ -161,7 +161,7 @@ app.post('/api/waitlist', (req, res) => {
             return res.status(500).json({ error: 'Internal server error. Please try again later.' });
         }
         res.status(201).json({ 
-            message: 'Your 15-day free early access has been granted!',
+            message: 'Welcome to StockBridge! Your 14-day free access is now active.',
             id: this.lastID 
         });
     });
@@ -205,9 +205,9 @@ function checkUser(req, res, next) {
             if (err || !user) return res.status(401).json({ error: 'User not found.' });
 
             const registrationDate = new Date(user.created_at);
-            const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
-            if (Date.now() - registrationDate.getTime() > fifteenDaysInMs) {
-                return res.status(403).json({ error: 'Your 15-day free access session has expired. Access denied.' });
+            const fourteenDaysInMs = 14 * 24 * 60 * 60 * 1000;
+            if (Date.now() - registrationDate.getTime() > fourteenDaysInMs) {
+                return res.status(403).json({ error: 'Your 14-day free access session has expired. Access denied.' });
             }
 
             req.user = decodedUser;
@@ -260,11 +260,11 @@ app.post('/api/auth/login', (req, res) => {
              return res.status(403).json({ error: 'Your account is currently inactive. Please contact support.' });
         }
 
-        // Second check for 15-day trial period
+        // Second check for 14-day trial period
         const registrationDate = new Date(user.created_at);
-        const fifteenDaysInMs = 15 * 24 * 60 * 60 * 1000;
-        if (Date.now() - registrationDate.getTime() > fifteenDaysInMs) {
-             return res.status(403).json({ error: 'Your 15-day free access has expired. Please subscribe to continue.' });
+        const fourteenDaysInMs = 14 * 24 * 60 * 60 * 1000;
+        if (Date.now() - registrationDate.getTime() > fourteenDaysInMs) {
+             return res.status(403).json({ error: 'Your 14-day free access has expired. Please subscribe to continue.' });
         }
         
         const validPassword = await bcrypt.compare(password, user.password_hash);
