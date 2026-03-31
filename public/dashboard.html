@@ -108,9 +108,56 @@
     .toast { background: var(--card); border: 1px solid var(--accent); color: var(--text); padding: 16px 24px; border-radius: 12px; font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 30px rgba(0, 229, 160, 0.1); animation: slideIn .3s ease forwards; opacity: 0; transform: translateY(20px); }
     .toast.error { border-color: var(--danger); box-shadow: 0 10px 30px rgba(255, 87, 87, 0.1); }
     @keyframes slideIn { to { opacity: 1; transform: translateY(0); } }
+
+    /* Onboarding Tour Styles */
+    #tour-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 10000; display: none; pointer-events: all; }
+    #tour-bubble { position: fixed; background: var(--card); border: 1px solid var(--accent); border-radius: 16px; padding: 24px; width: 320px; z-index: 10001; box-shadow: 0 20px 50px rgba(0,0,0,0.5); display: none; animation: fadeIn .3s ease; }
+    #tour-bubble h4 { font-family: var(--font-display); font-size: 1.1rem; color: var(--accent); margin-bottom: 8px; }
+    #tour-bubble p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+    .tour-btns { display: flex; gap: 10px; justify-content: flex-end; }
+    .tour-btn { padding: 8px 16px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; font-family: var(--font-display); transition: all .2s; }
+    .tour-btn.next { background: var(--accent); color: #000; border: none; }
+    .tour-btn.skip { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .tour-btn:hover { opacity: 0.8; }
+    .tour-spotlight { position: relative; z-index: 10001 !important; box-shadow: 0 0 0 9999px rgba(0,0,0,0.8), 0 0 20px var(--accent); pointer-events: none; border-radius: 8px; }
+
+    /* Welcome Splash Screen */
+    #welcome-splash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 20000; display: none; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; }
+    .splash-bg { position: absolute; width: 100%; height: 100%; object-fit: cover; opacity: 0.3; filter: blur(10px); animation: panBg 20s infinite linear; }
+    .splash-content { position: relative; z-index: 1; text-align: center; max-width: 600px; padding: 40px; }
+    .splash-logo { font-family: var(--font-display); font-size: 4rem; font-weight: 800; letter-spacing: -0.05em; margin-bottom: 10px; animation: glowText 2s infinite alternate; }
+    .splash-logo span { color: var(--accent); }
+    .splash-sub { color: var(--muted); font-size: 1.2rem; margin-bottom: 40px; opacity: 0; animation: fadeInDelayed 1s forwards 0.5s; }
+    .splash-video-btn { background: var(--accent); color: #000; padding: 16px 40px; border-radius: 40px; font-weight: 800; font-family: var(--font-display); border: none; cursor: pointer; font-size: 1.1rem; box-shadow: 0 0 20px var(--accent); transition: transform .3s; }
+    .splash-video-btn:hover { transform: scale(1.05); }
+
+    @keyframes glowText { from { text-shadow: 0 0 10px rgba(0,229,160,0); } to { text-shadow: 0 0 30px var(--accent); } }
+    @keyframes panBg { from { transform: scale(1.1) translateX(0); } to { transform: scale(1.1) translateX(-50px); } }
+    @keyframes fadeInDelayed { to { opacity: 1; } }
   </style>
 </head>
 <body>
+
+  <!-- Splash Screen -->
+  <div id="welcome-splash">
+    <img src="/assets/welcome_splash.png" class="splash-bg">
+    <div class="splash-content">
+      <div class="splash-logo">Stock<span>Bridge</span></div>
+      <p class="splash-sub">Welcome to India's smartest inventory platform.</p>
+      <button class="splash-video-btn" onclick="startOnboarding()">Start Your Experience →</button>
+    </div>
+  </div>
+
+  <!-- Tour UI -->
+  <div id="tour-overlay" onclick="skipTour()"></div>
+  <div id="tour-bubble">
+    <h4 id="tour-title">Welcome Header</h4>
+    <p id="tour-text">Instruction content goes here.</p>
+    <div class="tour-btns">
+      <button class="tour-btn skip" onclick="skipTour()">Skip All</button>
+      <button class="tour-btn next" onclick="nextTourStep()" id="tour-next-btn">Next Step →</button>
+    </div>
+  </div>
 
   <div class="top-bar">
     <div class="brand-logo">
@@ -126,29 +173,26 @@
   <div class="app-container">
     <aside>
       <div class="menu">
-        <div class="menu-item active" onclick="switchTab('dashboard', this)">
+        <div class="menu-item active" id="nav-dashboard" onclick="switchTab('dashboard', this)">
           <div class="left">📊 Dashboard</div>
         </div>
-        <div class="menu-item" onclick="switchTab('inventory', this)">
+        <div class="menu-item" id="nav-inventory" onclick="switchTab('inventory', this)">
           <div class="left">📦 Inventory</div>
         </div>
-        <div class="menu-item" onclick="switchTab('suppliers', this)">
+        <div class="menu-item" id="nav-suppliers" id="nav-suppliers" onclick="switchTab('suppliers', this)">
           <div class="left">🏢 Suppliers</div>
         </div>
-        <div class="menu-item" onclick="switchTab('orders', this)">
+        <div class="menu-item" id="nav-orders" onclick="switchTab('orders', this)">
           <div class="left">🛒 Orders POS</div>
         </div>
-        <div class="menu-item" onclick="switchTab('alerts', this)">
+        <div class="menu-item" id="nav-alerts" onclick="switchTab('alerts', this)">
           <div class="left">🔔 Alerts</div>
           <span class="badge" id="nav-alert-badge" style="display:none">0</span>
         </div>
-        <div class="menu-item" onclick="switchTab('forecast', this)">
+        <div class="menu-item" id="nav-forecast" onclick="switchTab('forecast', this)">
           <div class="left">📈 Forecast</div>
         </div>
-        <div class="menu-item" style="margin-top: 10px;" onclick="window.open('/welcome.html', '_blank')">
-          <div class="left">💡 Help & Guide</div>
-        </div>
-        <div class="menu-item" onclick="switchTab('settings', this)" style="margin-top: 20px; border-top: 1px solid var(--border)">
+        <div class="menu-item" id="nav-settings" onclick="switchTab('settings', this)" style="margin-top: 20px; border-top: 1px solid var(--border)">
           <div class="left">⚙️ Settings & API</div>
         </div>
       </div>
@@ -705,6 +749,78 @@
     }
 
     init();
+
+    // --- Onboarding Logic ---
+    let currentStep = 0;
+    const tourSteps = [
+      { id: 'nav-dashboard', title: 'Power Stats', text: 'See your real-time stock value and connected network here.' },
+      { id: 'nav-inventory', title: 'Product Hub', text: 'Manage every item in your shop, set SKU details, and low-limit warnings.' },
+      { id: 'nav-suppliers', title: 'Supply Network', text: 'Connect with your vendors and store their WhatsApp details for auto-ordering.' },
+      { id: 'nav-orders', title: 'Point of Sale', text: 'Scan barcodes or record sales manually to instantly deduct stock levels.' },
+      { id: 'nav-alerts', title: 'Quick Restock', text: 'Zero-click reordering happens here. When stock is low, just tap to message your vendor.' },
+      { id: 'nav-forecast', title: 'A.I. Forecast', text: 'The brain of StockBridge. It predicts how many days until your stock hits zero.' }
+    ];
+
+    function checkOnboarding() {
+      const done = localStorage.getItem('onboarding_v1');
+      if (!done) {
+        document.getElementById('welcome-splash').style.display = 'flex';
+      }
+    }
+
+    function startOnboarding() {
+      document.getElementById('welcome-splash').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('welcome-splash').style.display = 'none';
+        document.getElementById('tour-overlay').style.display = 'block';
+        showStep(0);
+      }, 500);
+    }
+
+    function showStep(index) {
+      if (index >= tourSteps.length) return finishTour();
+      
+      const step = tourSteps[index];
+      const el = document.getElementById(step.id);
+      
+      // Update Bubble
+      const bubble = document.getElementById('tour-bubble');
+      document.getElementById('tour-title').textContent = step.title;
+      document.getElementById('tour-text').textContent = step.text;
+      document.getElementById('tour-next-btn').textContent = (index === tourSteps.length - 1) ? 'Finish Tour' : 'Next Step →';
+      
+      bubble.style.display = 'block';
+      
+      // Spotlight logic
+      document.querySelectorAll('.tour-spotlight').forEach(x => x.classList.remove('tour-spotlight'));
+      el.classList.add('tour-spotlight');
+      
+      // Position Bubble
+      const rect = el.getBoundingClientRect();
+      bubble.style.left = (rect.right + 20) + 'px';
+      bubble.style.top = rect.top + 'px';
+      
+      currentStep = index;
+    }
+
+    function nextTourStep() {
+      showStep(currentStep + 1);
+    }
+
+    function skipTour() {
+      finishTour();
+    }
+
+    function finishTour() {
+      localStorage.setItem('onboarding_v1', 'true');
+      document.getElementById('tour-overlay').style.display = 'none';
+      document.getElementById('tour-bubble').style.display = 'none';
+      document.querySelectorAll('.tour-spotlight').forEach(x => x.classList.remove('tour-spotlight'));
+    }
+
+    // Call this inside window.onload or init
+    setTimeout(checkOnboarding, 1000); 
+
   </script>
 </body>
 </html>
