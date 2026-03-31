@@ -32,6 +32,9 @@ if (process.env.DATABASE_URL) {
                                 .replace(/INTEGER PRIMARY KEY AUTOINCREMENT/g, 'SERIAL PRIMARY KEY')
                                 .replace(/AUTOINCREMENT/g, 'SERIAL');
             
+            // Clean up SQL to avoid double semicolons or other syntax issues
+            postgresSql = postgresSql.trim().replace(/;$/, '');
+            
             if (postgresSql.toLowerCase().includes('insert into') && !postgresSql.toLowerCase().includes('returning')) {
                 postgresSql += ' RETURNING id';
             }
@@ -109,7 +112,7 @@ function initTables() {
         )
     `, [], (err) => {
         if (!err) {
-            db.run('ALTER TABLE waitlist ADD COLUMN status TEXT DEFAULT "pending"', [], () => {});
+            db.run("ALTER TABLE waitlist ADD COLUMN status TEXT DEFAULT 'pending'", [], () => {});
             db.run('ALTER TABLE waitlist ADD COLUMN password_hash TEXT', [], () => {});
             db.run('ALTER TABLE waitlist ADD COLUMN google_id TEXT', [], () => {});
             db.run('ALTER TABLE waitlist ADD COLUMN has_seen_onboarding BOOLEAN DEFAULT FALSE', [], () => {});
@@ -144,8 +147,8 @@ function initTables() {
         )
     `, [], (err) => {
          if (!err) {
-             db.run('ALTER TABLE products ADD COLUMN unit_cost REAL DEFAULT 0', [], () => {});
-             db.run('ALTER TABLE products ADD COLUMN buy_amount INTEGER DEFAULT 0', [], () => {});
+             db.run("ALTER TABLE products ADD COLUMN unit_cost REAL DEFAULT '0'", [], () => {});
+             db.run("ALTER TABLE products ADD COLUMN buy_amount INTEGER DEFAULT '0'", [], () => {});
          }
     });
 }
@@ -162,11 +165,15 @@ app.post('/api/waitlist', (req, res) => {
 
     db.run(sql, params, function(err) {
         if (err) {
-            if (err.message.includes('UNIQUE constraint failed') || (err.message && err.message.toLowerCase().includes('unique'))) {
+            const isUniqueError = err.code === '23505' || 
+                                (err.message && (err.message.includes('UNIQUE constraint failed') || err.message.toLowerCase().includes('unique')));
+            
+            if (isUniqueError) {
                 return res.status(409).json({ error: 'This email is already on our platform.' });
             }
-            console.error('Database error:', err.message);
-            return res.status(500).json({ error: 'Internal server error. Please try again later.' });
+            console.error('Database Registration Error:', err);
+            // Include message for deep debugging during deployment
+            return res.status(500).json({ error: `Internal server error: ${err.message || 'Database Fault'}` });
         }
         res.status(201).json({ 
             message: 'Welcome to StockBridge! Your 14-day free access is now active.',
