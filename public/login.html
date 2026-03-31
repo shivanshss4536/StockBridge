@@ -35,11 +35,15 @@
     
     .step { display: none; }
     .step.active { display: block; }
+
+    .modal-close { position: absolute; top: 20px; right: 24px; background: none; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; text-decoration: none; }
+    .modal-close:hover { color: var(--text); }
   </style>
 </head>
 <body>
 
   <div class="auth-card">
+    <a href="/" class="modal-close">✕</a>
     <div class="logo">Stock<span>Bridge</span></div>
 
     <div class="step active" id="step-email">
