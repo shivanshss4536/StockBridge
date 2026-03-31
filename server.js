@@ -1,6 +1,6 @@
 const express = require('express');
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
+// const sqlite3 = require('sqlite3').verbose(); // Removed for Vercel compatibility (not in dependencies)
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -54,21 +54,33 @@ if (process.env.DATABASE_URL) {
     console.log('Connected to the PostgreSQL (Neon) database.');
     initTables();
 } else {
-    const dbPath = path.join(__dirname, 'database.sqlite');
-    const sqliteDatabase = new sqlite3.Database(dbPath, (err) => {
-        if (err) {
-            console.error('Error connecting to SQLite:', err.message);
-        } else {
-            console.log('Connected to the local SQLite database.');
-            initTables();
-        }
-    });
+    console.warn('DATABASE_URL not found. Attempting to use local SQLite...');
+    try {
+        const sqlite3 = require('sqlite3').verbose();
+        const dbPath = path.join(__dirname, 'database.sqlite');
+        const sqliteDatabase = new sqlite3.Database(dbPath, (err) => {
+            if (err) {
+                console.error('Error connecting to SQLite:', err.message);
+            } else {
+                console.log('Connected to the local SQLite database.');
+                initTables();
+            }
+        });
 
-    db = {
-        run: (sql, params, callback) => sqliteDatabase.run(sql, params, callback),
-        get: (sql, params, callback) => sqliteDatabase.get(sql, params, callback),
-        all: (sql, params, callback) => sqliteDatabase.all(sql, params, callback)
-    };
+        db = {
+            run: (sql, params, callback) => sqliteDatabase.run(sql, params, callback),
+            get: (sql, params, callback) => sqliteDatabase.get(sql, params, callback),
+            all: (sql, params, callback) => sqliteDatabase.all(sql, params, callback)
+        };
+    } catch (e) {
+        console.error('SQLite dependency missing. Please run "npm install sqlite3" for local development or set DATABASE_URL.');
+        // Provide a dummy db object to prevent crashes on startup, though API calls will still fail.
+        db = {
+            run: (s, p, cb) => cb && cb(new Error('Database not configured')),
+            get: (s, p, cb) => cb && cb(new Error('Database not configured')),
+            all: (s, p, cb) => cb && cb(new Error('Database not configured'))
+        };
+    }
 }
 
 function initTables() {
@@ -408,24 +420,14 @@ app.post('/api/integration/sale', (req, res) => {
     });
 });
 
-setInterval(() => {
-    db.all(`
-        SELECT p.name, p.stock_count, p.sku, s.name as supplier, s.email 
-        FROM products p 
-        LEFT JOIN suppliers s ON p.supplier_id = s.id 
-        WHERE p.stock_count <= p.min_limit
-    `, [], (err, rows) => {
-        if (!err && rows && rows.length > 0) {
-            console.log(`[AUTO] Detected ${rows.length} critical items. sending emails...`);
-            rows.forEach(r => {
-                if(r.email) {
-                    console.log(` > Sending automated email to ${r.supplier} (${r.email}) regarding SKU: ${r.sku} (${r.name}).`);
-                }
-            });
-        }
-    });
-}, 1000 * 60 * 60);
+// low stock alerts removed for serverless compatibility. 
+// Use Vercel Cron Jobs to trigger an endpoint for this instead.
 
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-});
+// In Vercel, we export the app instead of calling app.listen()
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`Server is running on http://localhost:${PORT}`);
+    });
+}
+
+module.exports = app;
