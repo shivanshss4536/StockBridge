@@ -1462,7 +1462,7 @@ async function submitForm() {
     showToast("🎉 Account created! Redirecting...");
     setTimeout(() => {
         window.location.href = '/dashboard.html';
-    }, 1500);
+    }, 500);
   } catch (error) {
     showToast('❌ ' + error.message);
   } finally {
